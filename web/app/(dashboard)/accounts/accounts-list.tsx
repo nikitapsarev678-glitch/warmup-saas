@@ -2,9 +2,18 @@
 
 import nextDynamic from 'next/dynamic'
 import { useState } from 'react'
+import { MoreHorizontal, PauseCircle, PlayCircle, Settings2, ShieldOff, Trash2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { apiFetch } from '@/lib/api'
 import type { Project, TgAccount } from '@/lib/types'
 
@@ -26,6 +35,10 @@ function isVisibleAccount(account: TgAccount) {
 function getTelegramAvatarUrl(username: string | null) {
   if (!username) return null
   return `https://t.me/i/userpic/320/${username}.jpg`
+}
+
+function isPausedAccount(account: TgAccount) {
+  return Boolean(account.pause_until && new Date(account.pause_until) > new Date())
 }
 
 const STATUS_LABELS: Record<TgAccount['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -101,6 +114,38 @@ export function AccountsList({
     setItems(response.accounts.filter(isVisibleAccount))
   }
 
+  const patchAccount = async (accountId: number, path: string, body?: object) => {
+    await apiFetch(path, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    })
+
+    if (sheetState.accountId === accountId) {
+      await refreshAccount()
+    }
+    await refreshList()
+  }
+
+  const postAccountAction = async (accountId: number, path: string, body?: object) => {
+    await apiFetch(path, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    })
+
+    if (sheetState.accountId === accountId) {
+      await refreshAccount()
+    }
+    await refreshList()
+  }
+
+  const deleteAccount = async (accountId: number) => {
+    await apiFetch(`/accounts/${accountId}`, { method: 'DELETE' })
+    if (sheetState.accountId === accountId) {
+      setSheetState(initialSheetState)
+    }
+    await refreshList()
+  }
+
   const openAccount = async (accountId: number) => {
     setSheetState({ accountId, account: null, loading: true, error: null })
 
@@ -171,6 +216,7 @@ export function AccountsList({
             const title = account.first_name?.trim() || account.username?.trim() || account.phone
             const initial = (account.first_name?.[0] || account.phone.replace(/\D/g, '')[0] || '?').toUpperCase()
             const avatarUrl = getTelegramAvatarUrl(account.username)
+            const isPaused = isPausedAccount(account)
 
             return (
               <Card key={account.id} className="cursor-pointer transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent/15" onClick={() => void openAccount(account.id)}>
@@ -186,7 +232,68 @@ export function AccountsList({
                       {account.username ? <div className="text-sm text-muted-foreground">@{account.username}</div> : null}
                     </div>
                   </div>
-                  <Badge variant={status.variant}>{status.label}</Badge>
+                  <div className="flex items-start gap-2">
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button variant="outline" size="icon" className="size-8" />}>
+                        <MoreHorizontal className="size-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void openAccount(account.id)
+                          }}
+                        >
+                          <Settings2 className="size-4" />
+                          Открыть настройки
+                        </DropdownMenuItem>
+                        {isPaused ? (
+                          <DropdownMenuItem
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void postAccountAction(account.id, `/accounts/${account.id}/unpause`)
+                            }}
+                          >
+                            <PlayCircle className="size-4" />
+                            Снять паузу
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void postAccountAction(account.id, `/accounts/${account.id}/pause`, { hours: 24 })
+                            }}
+                          >
+                            <PauseCircle className="size-4" />
+                            Пауза на 24ч
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void patchAccount(account.id, `/accounts/${account.id}/status`, {
+                              status: account.status === 'disabled' ? 'active' : 'disabled',
+                            })
+                          }}
+                        >
+                          <ShieldOff className="size-4" />
+                          {account.status === 'disabled' ? 'Включить' : 'Отключить'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void deleteAccount(account.id)
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                          Удалить аккаунт
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <div>{account.messages_sent} сообщ.</div>

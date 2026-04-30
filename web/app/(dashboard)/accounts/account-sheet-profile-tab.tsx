@@ -1,10 +1,16 @@
 'use client'
 
 import { useState } from 'react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { apiFetch } from '@/lib/api'
 import type { TgAccount } from '@/lib/types'
+
+function getTelegramAvatarUrl(username: string | null) {
+  if (!username) return null
+  return `https://t.me/i/userpic/320/${username}.jpg`
+}
 
 export function ProfileTab({ account, onSaved }: { account: TgAccount; onSaved: () => Promise<void> }) {
   const [firstName, setFirstName] = useState(account.first_name ?? '')
@@ -12,6 +18,8 @@ export function ProfileTab({ account, onSaved }: { account: TgAccount; onSaved: 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const avatarUrl = getTelegramAvatarUrl(account.username)
+  const initial = (account.first_name?.[0] || account.phone.replace(/\D/g, '')[0] || '?').toUpperCase()
 
   const save = async () => {
     setSaving(true)
@@ -34,10 +42,26 @@ export function ProfileTab({ account, onSaved }: { account: TgAccount; onSaved: 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border p-4">
+        <div className="flex items-center gap-4">
+          <Avatar size="lg" className="h-14 w-14 border border-border/70 bg-muted/55">
+            {avatarUrl ? <AvatarImage src={avatarUrl} alt={account.username ?? account.phone} /> : null}
+            <AvatarFallback>{initial}</AvatarFallback>
+          </Avatar>
+          <div className="text-sm text-muted-foreground">
+            {avatarUrl
+              ? 'Аватар подтягивается из Telegram по username.'
+              : 'У аккаунта нет публичной userpic по username, поэтому показываем fallback.'}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border p-4">
         <div className="text-sm font-medium">Данные аккаунта</div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <Field label="Username" value={account.username ? `@${account.username}` : '—'} />
           <Field label="Telegram ID" value={account.tg_id ? String(account.tg_id) : '—'} />
+          <Field label="Телефон" value={account.phone} />
+          <Field label="Статус" value={account.status} />
         </div>
       </div>
 
@@ -59,7 +83,7 @@ export function ProfileTab({ account, onSaved }: { account: TgAccount; onSaved: 
       </div>
 
       <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
-        Фото профиля в этой фазе не загружается: сохраняются только безопасные текстовые поля аккаунта.
+        Сейчас в этой панели можно безопасно менять текстовые поля профиля: имя и bio. Username, аватар и телефон отображаются для контроля, но отдельного backend-обновления для них пока нет.
       </div>
 
       {error ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div> : null}
