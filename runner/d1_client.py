@@ -581,7 +581,12 @@ class D1Client:
 
         phone = str(state['phone'])
         api_id, api_hash = await self.get_telegram_login_credentials()
-        client = TelegramClient(StringSession(), api_id, api_hash, proxy=self._decode_proxy(state.get('proxy')))
+        client = TelegramClient(
+            StringSession(),
+            int(api_id),
+            str(api_hash).strip(),
+            proxy=self._decode_proxy(state.get('proxy')),
+        )
 
         try:
             await client.connect()
@@ -614,7 +619,12 @@ class D1Client:
         temp_session_string = state.get('temp_session_string')
         phone_code_hash = state.get('phone_code_hash')
         api_id, api_hash = await self.get_telegram_login_credentials()
-        client = TelegramClient(StringSession(str(temp_session_string or '')), api_id, api_hash, proxy=self._decode_proxy(state.get('proxy')))
+        client = TelegramClient(
+            StringSession(str(temp_session_string or '')),
+            int(api_id),
+            str(api_hash).strip(),
+            proxy=self._decode_proxy(state.get('proxy')),
+        )
 
         try:
             await client.connect()
