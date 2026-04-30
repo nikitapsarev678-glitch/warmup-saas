@@ -250,7 +250,9 @@ export async function countUserAccounts(
   userId: number
 ): Promise<number> {
   const row = await db
-    .prepare("SELECT COUNT(*) as cnt FROM tg_accounts WHERE user_id = ? AND status != 'banned'")
+    .prepare(
+      "SELECT COUNT(*) as cnt FROM tg_accounts WHERE user_id = ? AND session_string IS NOT NULL AND TRIM(session_string) != '' AND status NOT IN ('banned', 'pending', 'disabled')"
+    )
     .bind(userId)
     .first<{ cnt: number }>()
   return row?.cnt ?? 0

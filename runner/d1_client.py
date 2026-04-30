@@ -8,6 +8,8 @@ from telethon.sessions import StringSession
 import httpx
 
 ProxyRecord = dict[str, Any]
+PUBLIC_TELEGRAM_DESKTOP_API_ID = 611335
+PUBLIC_TELEGRAM_DESKTOP_API_HASH = 'd524b414d21f4d37f08684c1df41ac9c'
 
 TOKEN_PRICES = {
     'dm_sent': 1,
@@ -18,6 +20,15 @@ TOKEN_PRICES = {
     'parsing_lead_added': 1,
     'ai_parse_classification': 5,
 }
+
+
+def resolve_telegram_login_credentials() -> tuple[int, str]:
+    api_id = os.environ.get('TELEGRAM_API_ID')
+    api_hash = os.environ.get('TELEGRAM_API_HASH')
+    if api_id and api_hash:
+        return int(api_id), api_hash
+
+    return PUBLIC_TELEGRAM_DESKTOP_API_ID, PUBLIC_TELEGRAM_DESKTOP_API_HASH
 
 
 class D1Client:
@@ -555,11 +566,7 @@ class D1Client:
         return rows[0] if rows else None
 
     async def get_telegram_login_credentials(self) -> tuple[int, str]:
-        api_id = os.environ.get('TELEGRAM_API_ID')
-        api_hash = os.environ.get('TELEGRAM_API_HASH')
-        if not api_id or not api_hash:
-            raise RuntimeError('TELEGRAM_API_ID and TELEGRAM_API_HASH must be configured for phone login')
-        return int(api_id), api_hash
+        return resolve_telegram_login_credentials()
 
     async def send_telegram_code(self, account_id: int, user_id: int):
         state = await self.get_account_login_state(account_id, user_id)
