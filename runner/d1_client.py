@@ -584,9 +584,9 @@ class D1Client:
         phone = str(state['phone'])
         api_id, api_hash = await self.get_telegram_login_credentials()
         client = TelegramClient(
-            StringSession(),
-            int(api_id),
-            str(api_hash).strip(),
+            session=StringSession(),
+            api_id=int(api_id),
+            api_hash=str(api_hash).strip(),
             proxy=self._decode_proxy(state.get('proxy')),
         )
         logger.info(
@@ -629,9 +629,9 @@ class D1Client:
         phone_code_hash = state.get('phone_code_hash')
         api_id, api_hash = await self.get_telegram_login_credentials()
         client = TelegramClient(
-            StringSession(str(temp_session_string or '')),
-            int(api_id),
-            str(api_hash).strip(),
+            session=StringSession(str(temp_session_string or '')),
+            api_id=int(api_id),
+            api_hash=str(api_hash).strip(),
             proxy=self._decode_proxy(state.get('proxy')),
         )
 
