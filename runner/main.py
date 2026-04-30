@@ -187,6 +187,12 @@ async def run_single_action(action: str, *, account_id: int | None, user_id: int
             )
             return
 
+        if action == 'validate_account_session':
+            if not account_id or not user_id:
+                raise RuntimeError('validate_account_session requires account_id and user_id')
+            await db.validate_account_session(account_id, user_id)
+            return
+
         raise RuntimeError(f'Unsupported direct action: {action}')
     except SessionPasswordNeededError:
         if account_id and user_id:
