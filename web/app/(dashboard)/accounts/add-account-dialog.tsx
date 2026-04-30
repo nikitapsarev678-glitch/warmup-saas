@@ -129,6 +129,8 @@ export function AddAccountDialog({
   }
 }
 
+const LOGIN_STATUS_POLL_MS = 800
+
 function toHumanErrorMessage(value: unknown): string {
   const fallback = 'Не удалось выполнить действие. Попробуйте еще раз.'
   const raw = value instanceof Error ? value.message : typeof value === 'string' ? value : fallback
@@ -165,6 +167,60 @@ function toHumanErrorMessage(value: unknown): string {
     [onAdded]
   )
 
+  const applyLoginState = useCallback(
+    async (accountId: number, state: LoginStateResponse['state']) => {
+      if (!state) {
+        return
+      }
+
+      setLoginStateStatus(state.status as LoginStateStatus)
+
+      if (state.error_message && state.status !== 'done') {
+        setError(toHumanErrorMessage(state.error_message))
+      }
+
+      if (state.status === 'done') {
+        await loadAccount(accountId)
+        setInfo('Аккаунт успешно подключён.')
+        resetState(false)
+        return
+      }
+
+      if (state.password_required || state.status === 'password_required') {
+        setPhoneStep('enter-password')
+        setInfo('Для этого аккаунта включён дополнительный пароль Telegram. Введите его, чтобы завершить вход.')
+        return
+      }
+
+      if (state.status === 'error') {
+        if (state.error_message?.includes('AuthKeyUnregisteredError')) {
+          await loadAccount(accountId)
+          setInfo('Аккаунт уже подключён. Обновили список аккаунтов.')
+          resetState(false)
+          return
+        }
+
+        setPhoneStep('enter-phone')
+        setInfo('Не удалось запросить код. Проверьте номер и попробуйте снова.')
+        setCreatedAccountId(null)
+        setLoginStateStatus('error')
+        return
+      }
+
+      if (state.status === 'code_sent') {
+        setPhoneStep('enter-code')
+        setInfo('Код отправлен в Telegram. Введите его ниже.')
+        return
+      }
+
+      if (state.status === 'queued') {
+        setPhoneStep('waiting-code')
+        setInfo('Запрос на отправку кода принят. Ждём, пока Telegram подготовит код.')
+      }
+    },
+    [loadAccount]
+  )
+
   useEffect(() => {
     if (!open || mode !== 'phone' || !createdAccountId) {
       return
@@ -178,65 +234,19 @@ function toHumanErrorMessage(value: unknown): string {
           return
         }
 
-        setLoginStateStatus(response.state.status as LoginStateStatus)
-
-        if (response.state.error_message && response.state.status !== 'done') {
-          setError(toHumanErrorMessage(response.state.error_message))
-        }
-
-        if (response.state.status === 'done') {
-          await loadAccount(createdAccountId)
-          if (cancelled) {
-            return
-          }
-          setInfo('Аккаунт успешно подключён.')
-          resetState(false)
-          return
-        }
-
-        if (response.state.password_required || response.state.status === 'password_required') {
-          setPhoneStep('enter-password')
-          setInfo('Для этого аккаунта включён дополнительный пароль Telegram. Введите его, чтобы завершить вход.')
-          return
-        }
-
-        if (response.state.status === 'error') {
-          if (response.state.error_message?.includes('AuthKeyUnregisteredError')) {
-            await loadAccount(createdAccountId)
-            if (cancelled) {
-              return
-            }
-            setInfo('Аккаунт уже подключён. Обновили список аккаунтов.')
-            resetState(false)
-            return
-          }
-
-          setPhoneStep('enter-phone')
-          setInfo('Не удалось запросить код. Проверьте номер и попробуйте снова.')
-          setCreatedAccountId(null)
-          setLoginStateStatus('error')
-          return
-        }
-
-        if (response.state.status === 'code_sent') {
-          setPhoneStep('enter-code')
-          setInfo('Код отправлен в Telegram. Введите его ниже.')
-        } else if (response.state.status === 'queued') {
-          setPhoneStep('waiting-code')
-          setInfo('Запрос на отправку кода принят. Ждём, пока Telegram подготовит код.')
-        }
+        await applyLoginState(createdAccountId, response.state)
 
         if (!cancelled) {
           pollTimerRef.current = window.setTimeout(() => {
             void poll()
-          }, 2000)
+          }, LOGIN_STATUS_POLL_MS)
         }
       } catch (err) {
         if (!cancelled) {
           setError(toHumanErrorMessage(err instanceof Error ? err.message : 'Не удалось проверить статус логина'))
           pollTimerRef.current = window.setTimeout(() => {
             void poll()
-          }, 2000)
+          }, LOGIN_STATUS_POLL_MS)
         }
       }
     }
@@ -301,6 +311,9 @@ function toHumanErrorMessage(value: unknown): string {
       setPhoneStep('waiting-code')
       setCode('')
       setInfo(response.message ?? 'Запрос на отправку кода принят. Подождите несколько секунд.')
+
+      const loginState = await apiFetch<LoginStateResponse>(`/accounts/${response.account_id}/login-state`)
+      await applyLoginState(response.account_id, loginState.state)
     } catch (err) {
       setError(toHumanErrorMessage(err instanceof Error ? err.message : 'Не удалось отправить код'))
     } finally {
