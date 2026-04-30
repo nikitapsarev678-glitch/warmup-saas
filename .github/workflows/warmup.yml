@@ -37,7 +37,7 @@ jobs:
       - run: pip install -r runner/requirements.txt
       - name: Run warmup
         run: |
-          if [ "${{ inputs.action }}" = "send_code" ] || [ "${{ inputs.action }}" = "confirm_code" ]; then
+          if [ "${{ inputs.action }}" = "send_code" ] || [ "${{ inputs.action }}" = "confirm_code" ] || [ "${{ inputs.action }}" = "validate_account_session" ]; then
             python runner/main.py --action="${{ inputs.action }}" --account-id="${{ inputs.account_id }}" --user-id="${{ inputs.user_id }}"
           elif [ "${{ inputs.action }}" = "poll" ] || [ "${{ inputs.campaign_id }}" = "" ]; then
             python runner/main.py --poll
