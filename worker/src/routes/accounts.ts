@@ -68,6 +68,27 @@ function toSafeAccount(account: Awaited<ReturnType<typeof getAccountsByUser>>[nu
   }
 }
 
+async function refreshUserAccountHealth(env: Env, userId: number) {
+  const accountsToValidate = await env.DB
+    .prepare(
+      `
+        SELECT id
+        FROM tg_accounts
+        WHERE user_id = ?
+          AND session_string IS NOT NULL
+          AND TRIM(session_string) != ''
+          AND status IN ('active', 'warming', 'warmed', 'disabled')
+        ORDER BY id ASC
+      `
+    )
+    .bind(userId)
+    .all<{ id: number }>()
+
+  for (const account of accountsToValidate.results) {
+    await triggerGithubRunner(env, 'validate_account_session', { account_id: account.id, user_id: userId })
+  }
+}
+
 const accounts = new Hono<{ Bindings: Env } & AuthContext>()
 
 accounts.use('*', requireAuth)
@@ -493,6 +514,12 @@ accounts.post('/', async (c) => {
 
   const count = await countUserAccounts(c.env.DB, userId)
   if (count >= user.accounts_limit) {
+    await refreshUserAccountHealth(c.env, userId)
+    const refreshedCount = await countUserAccounts(c.env.DB, userId)
+    if (refreshedCount < user.accounts_limit) {
+      return c.json({ error: 'Account health refresh started. Повторите добавление через несколько секунд.' }, 409)
+    }
+
     return c.json(
       { error: `Account limit for ${user.plan} plan is ${user.accounts_limit}` },
       403
@@ -564,6 +591,12 @@ accounts.post('/send-code', async (c) => {
 
   const count = await countUserAccounts(c.env.DB, userId)
   if (count >= user.accounts_limit) {
+    await refreshUserAccountHealth(c.env, userId)
+    const refreshedCount = await countUserAccounts(c.env.DB, userId)
+    if (refreshedCount < user.accounts_limit) {
+      return c.json({ error: 'Account health refresh started. Повторите добавление через несколько секунд.' }, 409)
+    }
+
     return c.json(
       { error: `Account limit for ${user.plan} plan is ${user.accounts_limit}` },
       403

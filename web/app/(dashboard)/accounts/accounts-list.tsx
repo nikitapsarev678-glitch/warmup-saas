@@ -19,7 +19,7 @@ interface SheetState {
 }
 
 function isVisibleAccount(account: TgAccount) {
-  return account.status !== 'pending'
+  return account.status !== 'pending' && account.status !== 'disabled'
 }
 
 const STATUS_LABELS: Record<TgAccount['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {

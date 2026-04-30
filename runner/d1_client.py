@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 from telethon import TelegramClient
+from telethon.errors import AuthKeyUnregisteredError
 from telethon.sessions import StringSession
 
 import httpx
@@ -718,6 +719,57 @@ class D1Client:
             raw_text=getattr(response, 'raw_text', None),
         )
 
+    async def validate_account_session(self, account_id: int, user_id: int):
+        account = await self.get_account_for_spambot_check(account_id, user_id)
+        if not account:
+            raise RuntimeError(f'Account {account_id} not found for session validation')
+
+        session_string = account.get('session_string')
+        api_id = account.get('api_id')
+        api_hash = account.get('api_hash')
+        if not session_string or not api_id or not api_hash:
+            await self.execute(
+                """
+                UPDATE tg_accounts
+                SET status = 'disabled', block_reason = 'Account has no active Telegram session'
+                WHERE id = ? AND user_id = ?
+                """,
+                [account_id, user_id],
+            )
+            return
+
+        client = TelegramClient(
+            session=StringSession(str(session_string)),
+            api_id=int(api_id),
+            api_hash=str(api_hash).strip(),
+            proxy=self._decode_proxy(account.get('proxy')),
+        )
+
+        try:
+            await client.connect()
+            if not await client.is_user_authorized():
+                raise AuthKeyUnregisteredError(request=None)
+            await client.get_me()
+            await self.execute(
+                """
+                UPDATE tg_accounts
+                SET status = 'active', block_reason = NULL
+                WHERE id = ? AND user_id = ?
+                """,
+                [account_id, user_id],
+            )
+        except Exception as exc:
+            await self.execute(
+                """
+                UPDATE tg_accounts
+                SET status = 'disabled', block_reason = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                [_summarize_validation_error(exc), account_id, user_id],
+            )
+        finally:
+            await client.disconnect()
+
     def _decode_proxy(self, proxy_value: Any) -> Any:
         if not proxy_value:
             return None
@@ -739,3 +791,9 @@ class D1Client:
         if 'limit' in value or 'spam' in value or 'ограничен' in value or 'жалоб' in value:
             return 'spam'
         return 'unknown'
+
+
+def _summarize_validation_error(exc: Exception) -> str:
+    if isinstance(exc, AuthKeyUnregisteredError):
+        return 'Telegram session was terminated on another device'
+    return str(exc)[:1000] or exc.__class__.__name__

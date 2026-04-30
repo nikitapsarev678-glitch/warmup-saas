@@ -84,6 +84,7 @@ async def poll_queue():
         'check_proxies': lambda params: proxy_checker.run(int(params['user_id'])),
         'run_parsing': lambda params: parser.run(int(params['job_id'])),
         'check_spambot': lambda params: db.run_spambot_check(int(params['account_id']), int(params['user_id'])),
+        'validate_account_session': lambda params: db.validate_account_session(int(params['account_id']), int(params['user_id'])),
         'send_code': lambda params: db.send_telegram_code(int(params['account_id']), int(params['user_id'])),
         'confirm_code': lambda params: db.confirm_telegram_code(
             account_id=int(params['account_id']),
