@@ -146,6 +146,10 @@ function toHumanErrorMessage(value: unknown): string {
     return 'Не удалось связаться с runner для входа по SMS. Повторите попытку позже.'
   }
 
+  if (normalized.includes('AuthKeyUnregisteredError')) {
+    return 'Аккаунт уже подключился, но статус входа обновился с задержкой. Проверьте список аккаунтов.'
+  }
+
   if (normalized.includes('Cannot read "image.png"') || normalized.includes('does not support image input')) {
     return 'Этот режим не поддерживает чтение изображений. Удалите image.png из запроса или используйте модель с поддержкой картинок.'
   }
@@ -176,17 +180,37 @@ function toHumanErrorMessage(value: unknown): string {
 
         setLoginStateStatus(response.state.status as LoginStateStatus)
 
-        if (response.state.error_message) {
+        if (response.state.error_message && response.state.status !== 'done') {
           setError(toHumanErrorMessage(response.state.error_message))
+        }
+
+        if (response.state.status === 'done') {
+          await loadAccount(createdAccountId)
+          if (cancelled) {
+            return
+          }
+          setInfo('Аккаунт успешно подключён.')
+          resetState(false)
+          return
         }
 
         if (response.state.password_required || response.state.status === 'password_required') {
           setPhoneStep('enter-password')
-          setInfo('Telegram запросил пароль двухэтапной аутентификации.')
+          setInfo('Для этого аккаунта включён дополнительный пароль Telegram. Введите его, чтобы завершить вход.')
           return
         }
 
         if (response.state.status === 'error') {
+          if (response.state.error_message?.includes('AuthKeyUnregisteredError')) {
+            await loadAccount(createdAccountId)
+            if (cancelled) {
+              return
+            }
+            setInfo('Аккаунт уже подключён. Обновили список аккаунтов.')
+            resetState(false)
+            return
+          }
+
           setPhoneStep('enter-phone')
           setInfo('Не удалось запросить код. Проверьте номер и попробуйте снова.')
           setCreatedAccountId(null)
@@ -200,14 +224,6 @@ function toHumanErrorMessage(value: unknown): string {
         } else if (response.state.status === 'queued') {
           setPhoneStep('waiting-code')
           setInfo('Запрос на отправку кода принят. Ждём, пока Telegram подготовит код.')
-        } else if (response.state.status === 'done') {
-          await loadAccount(createdAccountId)
-          if (cancelled) {
-            return
-          }
-          setInfo('Аккаунт успешно подключён.')
-          resetState(false)
-          return
         }
 
         if (!cancelled) {

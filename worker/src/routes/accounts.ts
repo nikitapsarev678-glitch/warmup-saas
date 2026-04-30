@@ -15,6 +15,8 @@ import {
 } from './notifications'
 
 function toRunnerSetupErrorMessage(error: string) {
+  return error
+
   if (error === 'Runner is not configured in this environment') {
     return 'SMS-вход сейчас недоступен: runner не настроен в этой среде. Подключите GitHub runner и Telegram секреты или используйте StringSession.'
   }
@@ -661,17 +663,25 @@ accounts.post('/:id/confirm-code', async (c) => {
   const loginState = await c.env.DB
     .prepare(
       `
-        SELECT phone_code_hash, password_required
+        SELECT phone_code_hash, password_required, status
         FROM account_login_states
         WHERE account_id = ? AND user_id = ?
         LIMIT 1
       `
     )
     .bind(accountId, userId)
-    .first<{ phone_code_hash: string | null; password_required: number | null }>()
+    .first<{ phone_code_hash: string | null; password_required: number | null; status: string }>()
 
   if (!loginState) {
     return c.json({ error: 'Login state not found. Send code first.' }, 409)
+  }
+
+  if (account.session_string && account.api_id && account.api_hash) {
+    return c.json({ ok: true, message: 'Account is already connected', next_step: 'done' })
+  }
+
+  if (loginState.status === 'done') {
+    return c.json({ ok: true, message: 'Account is already connected', next_step: 'done' })
   }
 
   if (!password && !loginState.phone_code_hash) {
@@ -812,6 +822,7 @@ async function triggerGithubRunner(
           Authorization: `Bearer ${env.GITHUB_PAT}`,
           Accept: 'application/vnd.github+json',
           'Content-Type': 'application/json',
+          'User-Agent': 'warmup-saas-worker',
         },
         body: JSON.stringify({
           ref: 'main',
@@ -827,7 +838,13 @@ async function triggerGithubRunner(
     )
 
     if (!response.ok) {
-      return { ok: false, error: `Runner dispatch failed with status ${response.status}` }
+      const detail = (await response.text()).trim()
+      return {
+        ok: false,
+        error: detail
+          ? `Runner dispatch failed with status ${response.status}: ${detail.slice(0, 500)}`
+          : `Runner dispatch failed with status ${response.status}`,
+      }
     }
 
     return { ok: true }
