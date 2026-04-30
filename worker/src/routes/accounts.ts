@@ -68,6 +68,11 @@ function toSafeAccount(account: Awaited<ReturnType<typeof getAccountsByUser>>[nu
   }
 }
 
+function isDisconnectedAccount(account: { block_reason: string | null }) {
+  const reason = account.block_reason ?? ''
+  return reason.includes('Telegram session was terminated on another device') || reason.includes('AuthKeyUnregisteredError')
+}
+
 async function refreshUserAccountHealth(env: Env, userId: number) {
   const accountsToValidate = await env.DB
     .prepare(
@@ -96,7 +101,9 @@ accounts.use('*', requireAuth)
 accounts.get('/', async (c) => {
   const userId = c.get('userId')
   const list = await getAccountsByUser(c.env.DB, userId)
-  const safe: SafeAccount[] = list.map(toSafeAccount).filter((account) => account.status !== 'pending')
+  const safe: SafeAccount[] = list
+    .map(toSafeAccount)
+    .filter((account) => account.status !== 'pending' && account.status !== 'disabled' && !isDisconnectedAccount(account))
 
   return c.json({ accounts: safe })
 })

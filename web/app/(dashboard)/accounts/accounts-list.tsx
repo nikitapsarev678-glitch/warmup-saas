@@ -2,6 +2,7 @@
 
 import nextDynamic from 'next/dynamic'
 import { useState } from 'react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiFetch } from '@/lib/api'
@@ -20,6 +21,11 @@ interface SheetState {
 
 function isVisibleAccount(account: TgAccount) {
   return account.status !== 'pending' && account.status !== 'disabled'
+}
+
+function getTelegramAvatarUrl(username: string | null) {
+  if (!username) return null
+  return `https://t.me/i/userpic/320/${username}.jpg`
 }
 
 const STATUS_LABELS: Record<TgAccount['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -164,14 +170,16 @@ export function AccountsList({
             const status = STATUS_LABELS[account.status]
             const title = account.first_name?.trim() || account.username?.trim() || account.phone
             const initial = (account.first_name?.[0] || account.phone.replace(/\D/g, '')[0] || '?').toUpperCase()
+            const avatarUrl = getTelegramAvatarUrl(account.username)
 
             return (
               <Card key={account.id} className="cursor-pointer transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent/15" onClick={() => void openAccount(account.id)}>
                 <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-border/70 bg-muted/55 text-sm font-medium text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
-                      {initial}
-                    </div>
+                    <Avatar size="lg" className="h-11 w-11 border border-border/70 bg-muted/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
+                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={title} /> : null}
+                      <AvatarFallback>{initial}</AvatarFallback>
+                    </Avatar>
                     <div className="min-w-0">
                       <CardTitle className="truncate text-base">{title}</CardTitle>
                       <div className="mt-1 text-sm text-muted-foreground">{account.phone}</div>

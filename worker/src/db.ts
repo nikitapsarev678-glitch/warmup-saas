@@ -251,7 +251,7 @@ export async function countUserAccounts(
 ): Promise<number> {
   const row = await db
     .prepare(
-      "SELECT COUNT(*) as cnt FROM tg_accounts WHERE user_id = ? AND session_string IS NOT NULL AND TRIM(session_string) != '' AND status NOT IN ('banned', 'pending', 'disabled')"
+      "SELECT COUNT(*) as cnt FROM tg_accounts WHERE user_id = ? AND session_string IS NOT NULL AND TRIM(session_string) != '' AND status NOT IN ('banned', 'pending', 'disabled') AND COALESCE(block_reason, '') NOT LIKE 'Telegram session was terminated on another device%' AND COALESCE(block_reason, '') NOT LIKE '%AuthKeyUnregisteredError%'"
     )
     .bind(userId)
     .first<{ cnt: number }>()
