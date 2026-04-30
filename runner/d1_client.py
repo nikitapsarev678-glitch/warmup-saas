@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Any
 
@@ -10,6 +11,7 @@ import httpx
 ProxyRecord = dict[str, Any]
 PUBLIC_TELEGRAM_DESKTOP_API_ID = 611335
 PUBLIC_TELEGRAM_DESKTOP_API_HASH = 'd524b414d21f4d37f08684c1df41ac9c'
+logger = logging.getLogger(__name__)
 
 TOKEN_PRICES = {
     'dm_sent': 1,
@@ -586,6 +588,13 @@ class D1Client:
             int(api_id),
             str(api_hash).strip(),
             proxy=self._decode_proxy(state.get('proxy')),
+        )
+        logger.info(
+            'send_code credentials types: api_id=%s api_hash=%s client.api_id=%s client.api_hash=%s',
+            type(api_id).__name__,
+            type(api_hash).__name__,
+            type(getattr(client, 'api_id', None)).__name__,
+            type(getattr(client, 'api_hash', None)).__name__,
         )
 
         try:
