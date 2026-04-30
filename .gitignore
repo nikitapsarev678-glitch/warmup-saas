@@ -1,0 +1,31 @@
+.DS_Store
+.repo-backups/
+
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+.venv/
+**/__pycache__/
+**/*.py[cod]
+
+# Cloudflare / Wrangler local state
+.wrangler/
+**/.wrangler/
+
+# Next.js build output
+.next/
+out/
+**/.next/
+**/out/
+
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# TypeScript build info
+**/*.tsbuildinfo

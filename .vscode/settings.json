@@ -1,0 +1,39 @@
+{
+  "files.watcherExclude": {
+    "**/.claude/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.next/**": true,
+    "**/.repo-backups/**": true,
+    "**/.wrangler/**": true,
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true
+  },
+  "search.exclude": {
+    "**/.claude": true,
+    "**/.next": true,
+    "**/.repo-backups": true,
+    "**/.wrangler": true,
+    "**/node_modules": true,
+    "**/__pycache__": true
+  },
+  "files.exclude": {
+    "**/.claude": true,
+    "**/.next": true,
+    "**/.repo-backups": true,
+    "**/.wrangler": true,
+    "**/__pycache__": true
+  },
+  "git.autofetch": false,
+  "git.detectSubmodules": false,
+  "git.untrackedChanges": "hidden",
+  "npm.autoDetect": "off",
+  "search.followSymlinks": false,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.tsserver.maxTsServerMemory": 2048,
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEventsOnParentDirectory",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriority"
+  }
+}

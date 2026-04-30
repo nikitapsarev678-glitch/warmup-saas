@@ -1,0 +1,11 @@
+ALTER TABLE tg_accounts ADD COLUMN daily_limit INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tg_accounts ADD COLUMN hourly_limit INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE tg_accounts ADD COLUMN group_limit INTEGER NOT NULL DEFAULT 10;
+ALTER TABLE tg_accounts ADD COLUMN dm_limit INTEGER NOT NULL DEFAULT 10;
+ALTER TABLE tg_accounts ADD COLUMN pause_until TEXT;
+ALTER TABLE tg_accounts ADD COLUMN spambot_status TEXT;
+ALTER TABLE tg_accounts ADD COLUMN spambot_checked_at TEXT;
+ALTER TABLE tg_accounts ADD COLUMN bio TEXT;
+ALTER TABLE tg_accounts ADD COLUMN tg_id INTEGER;
+ALTER TABLE tg_accounts ADD COLUMN auto_warmup_enabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tg_accounts ADD COLUMN auto_warmup_config TEXT;

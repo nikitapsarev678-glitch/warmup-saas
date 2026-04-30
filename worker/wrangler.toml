@@ -1,0 +1,17 @@
+name = "warmup-saas-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "warmup-saas"
+database_id = "8af81c18-69be-4c4d-abe5-c184c69f72f1"
+
+[vars]
+ENVIRONMENT = "production"
+DEV_AUTH_ENABLED = "1"
+
+[dev]
+port = 8787
+local_protocol = "http"

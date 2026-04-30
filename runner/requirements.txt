@@ -1,0 +1,7 @@
+telethon==1.36.0
+httpx==0.27.0
+python-dotenv==1.0.1
+PySocks==1.7.1
+Faker==25.0.0
+opentele==1.15.1
+TgCrypto==1.2.5

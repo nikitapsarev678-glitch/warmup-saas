@@ -1,0 +1,28 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute warmup-saas --remote --file=migrations/0001_init.sql",
+    "db:local": "wrangler d1 execute warmup-saas --local --file=migrations/0001_init.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "hono": "^4.12.15",
+    "jose": "^6.2.2",
+    "md5": "^2.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260426.1",
+    "@types/md5": "^2.3.6",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.85.0"
+  }
+}

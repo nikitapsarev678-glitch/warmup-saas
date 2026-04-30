@@ -1,0 +1,31 @@
+{
+  "project": "Varmup",
+  "updated_at": "2026-04-28",
+  "last_completed_phase": 21,
+  "current_phase": 21,
+  "phases": {
+    "00": "done",
+    "01": "done",
+    "02": "done",
+    "03": "done",
+    "04": "done",
+    "05": "done",
+    "06": "done",
+    "07": "done",
+    "08": "done",
+    "09": "done",
+    "10": "done",
+    "11": "done",
+    "12": "done",
+    "13": "done",
+    "14": "done",
+    "15": "done",
+    "16": "done",
+    "17": "done",
+    "18": "done",
+    "19": "done",
+    "20": "done",
+    "21": "done"
+  },
+  "notes": "Phase 20 AI parsing completed on 2026-04-28 with tenant-safe parsing jobs API, runner queue processing that stores leads in D1, idempotent per-lead token metering, and /leads dashboard controls with progress polling. Phase 21 completed on 2026-04-28 with cooldown protection on dangerous endpoints, tenant-safe runner/system error visibility, clearer pause/error explainability, runner timeout and chunking safeguards, and runtime canary flags for parsing/AI dialogs/group broadcasts that can be disabled without deploy."
+}
