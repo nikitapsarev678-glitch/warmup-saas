@@ -146,47 +146,65 @@ async def poll_queue():
 
 async def run_single_action(action: str, *, account_id: int | None, user_id: int | None):
     db = D1Client()
+    try:
+        if action == 'send_code':
+            if not account_id or not user_id:
+                raise RuntimeError('send_code requires account_id and user_id')
+            await db.send_telegram_code(account_id, user_id)
+            return
 
-    if action == 'send_code':
-        if not account_id or not user_id:
-            raise RuntimeError('send_code requires account_id and user_id')
-        await db.send_telegram_code(account_id, user_id)
-        return
+        if action == 'confirm_code':
+            if not account_id or not user_id:
+                raise RuntimeError('confirm_code requires account_id and user_id')
 
-    if action == 'confirm_code':
-        if not account_id or not user_id:
-            raise RuntimeError('confirm_code requires account_id and user_id')
+            state = await db.get_account_login_state(account_id, user_id)
+            if not state:
+                raise RuntimeError(f'Login state for account {account_id} not found')
 
-        state = await db.get_account_login_state(account_id, user_id)
-        if not state:
-            raise RuntimeError(f'Login state for account {account_id} not found')
+            task_rows = await db.query(
+                """
+                SELECT params_json
+                FROM task_queue
+                WHERE status = 'queued' AND action = 'confirm_code'
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+            )
 
-        task_rows = await db.query(
-            """
-            SELECT params_json
-            FROM task_queue
-            WHERE status = 'queued' AND action = 'confirm_code'
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-        )
+            params: dict[str, Any] = {}
+            for row in task_rows:
+                candidate = json.loads(str(row.get('params_json') or '{}'))
+                if int(candidate.get('account_id') or 0) == account_id and int(candidate.get('user_id') or 0) == user_id:
+                    params = candidate
+                    break
 
-        params: dict[str, Any] = {}
-        for row in task_rows:
-            candidate = json.loads(str(row.get('params_json') or '{}'))
-            if int(candidate.get('account_id') or 0) == account_id and int(candidate.get('user_id') or 0) == user_id:
-                params = candidate
-                break
+            await db.confirm_telegram_code(
+                account_id=account_id,
+                user_id=user_id,
+                code=str(params['code']) if params.get('code') is not None else None,
+                password=str(params['password']) if params.get('password') is not None else None,
+            )
+            return
 
-        await db.confirm_telegram_code(
-            account_id=account_id,
-            user_id=user_id,
-            code=str(params['code']) if params.get('code') is not None else None,
-            password=str(params['password']) if params.get('password') is not None else None,
-        )
-        return
-
-    raise RuntimeError(f'Unsupported direct action: {action}')
+        raise RuntimeError(f'Unsupported direct action: {action}')
+    except SessionPasswordNeededError:
+        if account_id and user_id:
+            await db.mark_account_login_state(
+                account_id=account_id,
+                user_id=user_id,
+                status='password_required',
+                password_required=True,
+                error_message='Telegram требует пароль двухэтапной аутентификации',
+            )
+        raise
+    except Exception as exc:
+        if action in {'send_code', 'confirm_code'} and account_id and user_id:
+            await db.mark_account_login_error(
+                account_id=account_id,
+                user_id=user_id,
+                error_message=_summarize_exception(exc),
+            )
+        raise
 
 
 async def _propagate_task_error(db: D1Client, task: dict[str, Any], params: dict[str, Any], error_summary: str):

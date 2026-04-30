@@ -27,7 +27,10 @@ def resolve_telegram_login_credentials() -> tuple[int, str]:
     api_hash = os.environ.get('TELEGRAM_API_HASH')
     if api_id and api_hash:
         try:
-            return int(api_id), api_hash
+            parsed_api_id = int(api_id)
+            normalized_api_hash = str(api_hash).strip()
+            if parsed_api_id > 0 and len(normalized_api_hash) >= 16 and normalized_api_hash != '***':
+                return parsed_api_id, normalized_api_hash
         except ValueError:
             pass
 
