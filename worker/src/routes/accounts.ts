@@ -604,7 +604,7 @@ accounts.post('/send-code', async (c) => {
   const existingAttempt = await c.env.DB
     .prepare(
       `
-        SELECT a.id, a.status AS account_status, a.project_id, als.status, als.updated_at
+        SELECT a.id, a.status AS account_status, als.status, als.updated_at
         FROM tg_accounts a
         LEFT JOIN account_login_states als ON als.account_id = a.id AND als.user_id = a.user_id
         WHERE a.user_id = ?
@@ -615,7 +615,7 @@ accounts.post('/send-code', async (c) => {
       `
     )
     .bind(userId, normalizedPhone)
-    .first<{ id: number; account_status: string; project_id: number | null; status: string | null; updated_at: string | null }>()
+    .first<{ id: number; account_status: string; status: string | null; updated_at: string | null }>()
 
   if (existingAttempt) {
     const updatedAt = existingAttempt.updated_at ? new Date(existingAttempt.updated_at).getTime() : 0
@@ -658,73 +658,6 @@ accounts.post('/send-code', async (c) => {
     return c.json(
       { error: `Account limit for ${user.plan} plan is ${user.accounts_limit}` },
       403
-    )
-  }
-
-  if (existingAttempt) {
-    await c.env.DB.batch([
-      c.env.DB
-        .prepare(
-          `
-            UPDATE tg_accounts
-            SET phone = ?, project_id = ?, status = 'pending', block_reason = NULL
-            WHERE id = ? AND user_id = ?
-          `
-        )
-        .bind(phone, projectId ?? existingAttempt.project_id ?? null, existingAttempt.id, userId),
-      c.env.DB
-        .prepare(
-          `
-            UPDATE account_login_states
-            SET
-              phone = ?,
-              temp_session_string = NULL,
-              phone_code_hash = NULL,
-              status = 'queued',
-              password_required = 0,
-              error_message = NULL,
-              updated_at = CURRENT_TIMESTAMP
-            WHERE account_id = ? AND user_id = ?
-          `
-        )
-        .bind(phone, existingAttempt.id, userId),
-    ])
-
-    const githubDispatch = await triggerGithubRunner(c.env, 'send_code', { account_id: existingAttempt.id, user_id: userId })
-    if (!githubDispatch.ok) {
-      const runnerError = toRunnerSetupErrorMessage(githubDispatch.error)
-      await c.env.DB.batch([
-        c.env.DB
-          .prepare(
-            `
-              UPDATE account_login_states
-              SET status = 'error', error_message = ?, updated_at = CURRENT_TIMESTAMP
-              WHERE account_id = ? AND user_id = ?
-            `
-          )
-          .bind(runnerError, existingAttempt.id, userId),
-        c.env.DB
-          .prepare(
-            `
-              UPDATE tg_accounts
-              SET status = 'disabled', block_reason = ?
-              WHERE id = ? AND user_id = ?
-            `
-          )
-          .bind(runnerError, existingAttempt.id, userId),
-      ])
-
-      return c.json({ error: runnerError, reason: 'runner_unavailable' }, 502)
-    }
-
-    return c.json(
-      {
-        ok: true,
-        account_id: existingAttempt.id,
-        message: 'Повторно используем уже созданную попытку подключения и сразу запрашиваем новый код.',
-        next_step: 'wait_for_code',
-      },
-      201
     )
   }
 
