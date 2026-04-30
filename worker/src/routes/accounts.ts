@@ -60,6 +60,10 @@ function sanitizeAccountProxy(proxy: string | null) {
   }
 }
 
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, '')
+}
+
 function toSafeAccount(account: Awaited<ReturnType<typeof getAccountsByUser>>[number]): SafeAccount {
   const { session_string, api_hash, proxy, ...rest } = account
   return {
@@ -594,6 +598,40 @@ accounts.post('/send-code', async (c) => {
 
   if (!phone) {
     return c.json({ error: 'phone is required' }, 400)
+  }
+
+  const normalizedPhone = normalizePhone(phone)
+  const existingAttempt = await c.env.DB
+    .prepare(
+      `
+        SELECT a.id, als.status, als.updated_at
+        FROM tg_accounts a
+        LEFT JOIN account_login_states als ON als.account_id = a.id AND als.user_id = a.user_id
+        WHERE a.user_id = ?
+          AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '+', ''), ' ', ''), '(', ''), ')', ''), '-', '') = ?
+          AND a.status IN ('pending', 'disabled')
+        ORDER BY a.id DESC
+        LIMIT 1
+      `
+    )
+    .bind(userId, normalizedPhone)
+    .first<{ id: number; status: string | null; updated_at: string | null }>()
+
+  if (existingAttempt) {
+    const updatedAt = existingAttempt.updated_at ? new Date(existingAttempt.updated_at).getTime() : 0
+    const secondsSinceLastUpdate = updatedAt ? Math.floor((Date.now() - updatedAt) / 1000) : Number.POSITIVE_INFINITY
+
+    if (existingAttempt.status === 'queued' || existingAttempt.status === 'code_sent' || secondsSinceLastUpdate < 300) {
+      return c.json(
+        {
+          ok: true,
+          account_id: existingAttempt.id,
+          message: 'Для этого номера уже запущено подключение. Дождитесь обновления статуса или введите код.',
+          next_step: 'poll_login_state',
+        },
+        200
+      )
+    }
   }
 
   const count = await countUserAccounts(c.env.DB, userId)
