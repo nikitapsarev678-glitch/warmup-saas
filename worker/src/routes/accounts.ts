@@ -604,7 +604,7 @@ accounts.post('/send-code', async (c) => {
   const existingAttempt = await c.env.DB
     .prepare(
       `
-        SELECT a.id, als.status, als.updated_at
+        SELECT a.id, a.status AS account_status, als.status, als.updated_at
         FROM tg_accounts a
         LEFT JOIN account_login_states als ON als.account_id = a.id AND als.user_id = a.user_id
         WHERE a.user_id = ?
@@ -615,13 +615,26 @@ accounts.post('/send-code', async (c) => {
       `
     )
     .bind(userId, normalizedPhone)
-    .first<{ id: number; status: string | null; updated_at: string | null }>()
+    .first<{ id: number; account_status: string; status: string | null; updated_at: string | null }>()
 
   if (existingAttempt) {
     const updatedAt = existingAttempt.updated_at ? new Date(existingAttempt.updated_at).getTime() : 0
     const secondsSinceLastUpdate = updatedAt ? Math.floor((Date.now() - updatedAt) / 1000) : Number.POSITIVE_INFINITY
+    const reusableStatuses = new Set(['queued', 'code_sent', 'password_required', 'confirming_code'])
 
-    if (existingAttempt.status === 'queued' || existingAttempt.status === 'code_sent' || secondsSinceLastUpdate < 300) {
+    if (existingAttempt.status && reusableStatuses.has(existingAttempt.status)) {
+      return c.json(
+        {
+          ok: true,
+          account_id: existingAttempt.id,
+          message: 'Для этого номера уже запущено подключение. Дождитесь обновления статуса или введите код.',
+          next_step: existingAttempt.status === 'code_sent' ? 'enter_code' : 'poll_login_state',
+        },
+        200
+      )
+    }
+
+    if (existingAttempt.account_status === 'pending' && secondsSinceLastUpdate < 300) {
       return c.json(
         {
           ok: true,
